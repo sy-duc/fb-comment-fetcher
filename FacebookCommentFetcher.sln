@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36301.6 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FacebookCommentFetcher", "FacebookCommentFetcher\FacebookCommentFetcher.csproj", "{6CEEE914-74D4-49D7-9109-30B94335062E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6CEEE914-74D4-49D7-9109-30B94335062E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6CEEE914-74D4-49D7-9109-30B94335062E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6CEEE914-74D4-49D7-9109-30B94335062E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6CEEE914-74D4-49D7-9109-30B94335062E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3EE48339-D224-4881-AA2A-4B9A4F59C609}
+	EndGlobalSection
+EndGlobal
