@@ -60,11 +60,12 @@ namespace FacebookCommentFetcher.Services
 
         public async Task<List<CommentInfo>> FetchCommentsAsync(
             string postId,
+            string accessToken,
             IProgress<int>? progress = null,
             CancellationToken cancellationToken = default)
         {
             var allComments = new List<CommentInfo>();
-            string? nextUrl = $"https://graph.facebook.com/v21.0/{postId}/comments?fields=id,message,from,created_time&limit=100&access_token={_accessToken}";
+            string? nextUrl = $"https://graph.facebook.com/v21.0/{postId}/comments?fields=id,message,from,created_time&limit=100&access_token={accessToken}";
 
             int pageCount = 0;
             while (!string.IsNullOrEmpty(nextUrl))

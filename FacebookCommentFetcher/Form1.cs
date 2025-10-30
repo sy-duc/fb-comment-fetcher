@@ -7,20 +7,25 @@ namespace FacebookCommentFetcher
 {
     public partial class Form1 : Form
     {
-        // Khai báo control để còn dùng trong các event sau này
-        private TextBox txtToken;
-        private CheckBox chkSaveToken;
-        private TextBox txtLink;
-        private Button btnTest;
-        private Button btnStart;
-        private Button btnExport;
-        private RadioButton radioAll;
-        private RadioButton radioKeyword;
-        private TextBox txtKeyword;
-        private ProgressBar progressBar;
-        private DataGridView grid;
+        private string? _pageId;
+        private string? _postId;
+        private string? _accessToken;
+        private readonly FbApiService _fbApiService = new FbApiService();
 
-        private AppConfig _config;
+        // Khai báo control để còn dùng trong các event sau này
+        private TextBox txtToken = null!;
+        private CheckBox chkSaveToken = null!;
+        private TextBox txtLink = null!;
+        private Button btnTest = null!;
+        private Button btnStart = null!;
+        private Button btnExport = null!;
+        private RadioButton radioAll = null!;
+        private RadioButton radioKeyword = null!;
+        private TextBox txtKeyword = null!;
+        private ProgressBar progressBar = null!;
+        private DataGridView grid = null!;
+
+        private AppConfig _config = null!;
 
         public Form1()
         {
@@ -131,11 +136,16 @@ namespace FacebookCommentFetcher
                 AllowUserToDeleteRows = false,
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect
             };
+
+             // Thêm event handler cho việc click vào cell
+            grid.CellContentClick += Grid_CellContentClick;
+            grid.DataBindingComplete += Grid_DataBindingComplete;
+
             layout.Controls.Add(grid);
         }
 
         // ===== HANDLER TẠM THỜI =====
-        private async void BtnTest_Click(object sender, EventArgs e)
+        private async void BtnTest_Click(object? sender, EventArgs e)
         {
             try
             {
@@ -148,15 +158,21 @@ namespace FacebookCommentFetcher
                     return;
                 }
 
-                var fb = new FbApiService();
-
-                var (pageId, postId) = await fb.ResolvePostInfoAsync(link);
-                var meta = await fb.GetPostMetadataAsync(postId, token);
+                var (pageId, postId) = await _fbApiService.ResolvePostInfoAsync(link);
+                var meta = await _fbApiService.GetPostMetadataAsync(postId, token);
 
                 if (meta != null)
                 {
+                    // Lưu thông tin để dùng sau
+                    _pageId = pageId;
+                    _postId = postId;
+                    _accessToken = token;
+
+                    // Thông báo kiểm tra kết nối thành công
                     string msg = $"Kết nối thành công!\n\nPost ID: {postId}\nPage ID: {pageId}\nCreated: {meta.Value.GetProperty("created_time").GetString()}";
                     MessageBox.Show(msg, "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    
+                    // Enable button cho phép bắt đầu fetch comments
                     btnStart.Enabled = true;
                 }
                 else
@@ -172,11 +188,18 @@ namespace FacebookCommentFetcher
             }
         }
 
-        private async void BtnStart_Click(object sender, EventArgs e)
+        private async void BtnStart_Click(object? sender, EventArgs e)
         {
             btnStart.Enabled = false;
             progressBar.Style = ProgressBarStyle.Marquee;
             progressBar.Value = 0;
+
+            // Kiểm tra đã test chưa
+            if (string.IsNullOrEmpty(_postId) || string.IsNullOrEmpty(_accessToken))
+            {
+                MessageBox.Show("Vui lòng test kết nối trước!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
 
             try
             {
@@ -186,7 +209,7 @@ namespace FacebookCommentFetcher
                     progressBar.Value = Math.Min(value, progressBar.Maximum);
                 });
 
-                var comments = await _facebookApiService.FetchCommentsAsync(txtPostId.Text, progress);
+                var comments = await _fbApiService.FetchCommentsAsync(_postId, _accessToken, progress);
                 grid.DataSource = comments;
 
                 MessageBox.Show($"Đã tải {comments.Count} bình luận!");
@@ -204,7 +227,7 @@ namespace FacebookCommentFetcher
         }
 
 
-        private void BtnExport_Click(object sender, EventArgs e)
+        private void BtnExport_Click(object? sender, EventArgs e)
         {
             MessageBox.Show("📁 Xuất file Excel (chưa triển khai logic).", "Thông báo");
         }
@@ -218,6 +241,67 @@ namespace FacebookCommentFetcher
 
                 MessageBox.Show("Đã lưu Access Token vào cấu hình!",
                     "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+                private void Grid_DataBindingComplete(object? sender, DataGridViewBindingCompleteEventArgs e)
+        {
+            // Tự động điều chỉnh cột để hiển thị tốt hơn
+            if (grid.Columns.Contains("Id") && grid.Columns["Id"] != null)
+            {
+                grid.Columns["Id"]!.HeaderText = "Comment ID";
+                grid.Columns["Id"]!.Width = 120;
+                // Đặt style cho cột CommentId như một link
+                grid.Columns["Id"]!.DefaultCellStyle.ForeColor = Color.Blue;
+                grid.Columns["Id"]!.DefaultCellStyle.Font = new Font(grid.Font, FontStyle.Underline);
+                grid.Columns["Id"]!.ToolTipText = "Click để xem người comment trên Facebook";
+            }
+            
+            if (grid.Columns.Contains("Message") && grid.Columns["Message"] != null)
+            {
+                grid.Columns["Message"]!.HeaderText = "Nội dung";
+                grid.Columns["Message"]!.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            }
+
+            if (grid.Columns.Contains("CreatedTime") && grid.Columns["CreatedTime"] != null)
+            {
+                grid.Columns["CreatedTime"]!.HeaderText = "Thời gian";
+                grid.Columns["CreatedTime"]!.Width = 150;
+            }
+            
+            // Thêm tooltip cho toàn bộ grid
+            grid.ShowCellToolTips = true;
+        }
+
+        private void Grid_CellContentClick(object? sender, DataGridViewCellEventArgs e)
+        {
+            // Kiểm tra nếu click vào cột CommentId
+            if (e.RowIndex >= 0 && e.ColumnIndex >= 0)
+            {
+                var columnName = grid.Columns[e.ColumnIndex].Name;
+                
+                if (columnName == "Id")
+                {
+                    var commentUrl = grid.Rows[e.RowIndex].Cells["CommentUrl"].Value?.ToString();
+
+                    if (!string.IsNullOrEmpty(commentUrl))
+                    {                      
+                        try
+                        {
+                            // Mở browser với URL của comment
+                            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                            {
+                                FileName = commentUrl,
+                                UseShellExecute = true
+                            });
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show($"Không thể mở browser: {ex.Message}", 
+                                "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        }
+                    }
+                }
             }
         }
     }
