@@ -10,41 +10,6 @@ namespace FacebookCommentFetcher.Services
     {
         private readonly HttpClient _httpClient = new HttpClient();
 
-        public async Task<(string pageId, string postId)> ResolvePostInfoAsync(string postLink)
-        {
-            if (string.IsNullOrWhiteSpace(postLink))
-                throw new ArgumentException("Link bài viết không được để trống.");
-
-            // 💡 Chuẩn hóa link (xóa query string)
-            postLink = postLink.Split('?')[0];
-
-            // ===== Các pattern phổ biến =====
-            // 1. Dạng cũ: https://www.facebook.com/<page>/posts/<post_id>
-            var match = Regex.Match(postLink, @"facebook\.com/.+?/posts/(\d+)");
-            if (match.Success)
-                return ("", match.Groups[1].Value);
-
-            // 2. Dạng mới: https://www.facebook.com/<page>/videos/<post_id>
-            match = Regex.Match(postLink, @"facebook\.com/.+?/videos/(\d+)");
-            if (match.Success)
-                return ("", match.Groups[1].Value);
-
-            // 3. Dạng chia sẻ: https://www.facebook.com/share/p/<short_id>/
-            match = Regex.Match(postLink, @"facebook\.com/share/p/(\w+)");
-            if (match.Success)
-            {
-                // Facebook hiện tại dùng shortlink → không thể extract trực tiếp
-                throw new InvalidOperationException("Link chia sẻ (share/p/...) không thể lấy post_id trực tiếp. Hãy mở link và copy lại link đầy đủ của bài viết.");
-            }
-
-            // 4. Dạng photo: https://www.facebook.com/photo/?fbid=123456789&set=a.987654321
-            match = Regex.Match(postLink, @"fbid=(\d+)");
-            if (match.Success)
-                return ("", match.Groups[1].Value);
-
-            throw new InvalidOperationException("Không thể phân tích được link bài viết. Hãy đảm bảo bạn dán đúng link đầy đủ.");
-        }
-
         public async Task<JsonElement?> GetPostMetadataAsync(string postId, string accessToken)
         {
             string url = $"https://graph.facebook.com/v23.0/{postId}?fields=id,created_time,from,message,permalink_url&access_token={accessToken}";

@@ -7,15 +7,12 @@ namespace FacebookCommentFetcher
 {
     public partial class Form1 : Form
     {
-        private string? _pageId;
-        private string? _postId;
-        private string? _accessToken;
         private readonly FbApiService _fbApiService = new FbApiService();
 
         // Khai báo control để còn dùng trong các event sau này
         private TextBox txtToken = null!;
-        private CheckBox chkSaveToken = null!;
-        private TextBox txtLink = null!;
+        private TextBox txtPostId = null!;
+        private TextBox txtPageId = null!;
         private Button btnTest = null!;
         private Button btnStart = null!;
         private Button btnExport = null!;
@@ -25,18 +22,9 @@ namespace FacebookCommentFetcher
         private ProgressBar progressBar = null!;
         private DataGridView grid = null!;
 
-        private AppConfig _config = null!;
-
         public Form1()
         {
             InitializeComponent();
-            LoadConfig();
-        }
-
-        private void LoadConfig()
-        {
-            _config = ConfigService.LoadConfig();
-            txtToken.Text = _config.AccessToken;
         }
 
         private void InitializeComponent()
@@ -50,13 +38,14 @@ namespace FacebookCommentFetcher
             var layout = new TableLayoutPanel
             {
                 Dock = DockStyle.Fill,
-                RowCount = 6,
+                RowCount = 7,
                 ColumnCount = 1,
                 AutoSize = true,
                 Padding = new Padding(10),
             };
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Token
-            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Link
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // PostId
+            layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // PageId
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Buttons
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Filters
             layout.RowStyles.Add(new RowStyle(SizeType.AutoSize)); // Progress
@@ -71,22 +60,30 @@ namespace FacebookCommentFetcher
             };
             tokenPanel.Controls.Add(new Label { Text = "Access Token:", AutoSize = true, Width = 100, TextAlign = ContentAlignment.MiddleLeft });
             txtToken = new TextBox { Width = 600 };
-            chkSaveToken = new CheckBox { Text = "Lưu Token", AutoSize = true, Margin = new Padding(10, 3, 0, 0) };
             tokenPanel.Controls.Add(txtToken);
-            tokenPanel.Controls.Add(chkSaveToken);
             layout.Controls.Add(tokenPanel);
-            chkSaveToken.CheckedChanged += ChkSaveToken_CheckedChanged;
 
-            // ===== LINK BÀI VIẾT =====
-            var linkPanel = new FlowLayoutPanel
+            // ===== POST ID =====
+            var postIdPanel = new FlowLayoutPanel
             {
                 Dock = DockStyle.Fill,
                 AutoSize = true
             };
-            linkPanel.Controls.Add(new Label { Text = "Post Link:", AutoSize = true, Width = 100, TextAlign = ContentAlignment.MiddleLeft });
-            txtLink = new TextBox { Width = 800 };
-            linkPanel.Controls.Add(txtLink);
-            layout.Controls.Add(linkPanel);
+            postIdPanel.Controls.Add(new Label { Text = "Post ID:", AutoSize = true, Width = 100, TextAlign = ContentAlignment.MiddleLeft });
+            txtPostId = new TextBox { Width = 400 };
+            postIdPanel.Controls.Add(txtPostId);
+            layout.Controls.Add(postIdPanel);
+
+            // ===== PAGE ID =====
+            var pageIdPanel = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                AutoSize = true
+            };
+            pageIdPanel.Controls.Add(new Label { Text = "Page ID:", AutoSize = true, Width = 100, TextAlign = ContentAlignment.MiddleLeft });
+            txtPageId = new TextBox { Width = 400 };
+            pageIdPanel.Controls.Add(txtPageId);
+            layout.Controls.Add(pageIdPanel);
 
             // ===== CÁC NÚT CHÍNH =====
             var btnPanel = new FlowLayoutPanel
@@ -137,7 +134,7 @@ namespace FacebookCommentFetcher
                 SelectionMode = DataGridViewSelectionMode.FullRowSelect
             };
 
-             // Thêm event handler cho việc click vào cell
+            // Thêm event handler cho việc click vào cell
             grid.CellContentClick += Grid_CellContentClick;
             grid.DataBindingComplete += Grid_DataBindingComplete;
 
@@ -150,28 +147,23 @@ namespace FacebookCommentFetcher
             try
             {
                 string token = txtToken.Text.Trim();
-                string link = txtLink.Text.Trim();
+                string postId = txtPostId.Text.Trim();
+                string pageId = txtPageId.Text.Trim();
 
-                if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(link))
+                if (string.IsNullOrEmpty(token) || string.IsNullOrEmpty(postId) || string.IsNullOrEmpty(pageId))
                 {
-                    MessageBox.Show("Vui lòng nhập Access Token và Link bài viết.", "Thiếu thông tin", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    MessageBox.Show("Vui lòng nhập Access Token, Post ID và Page ID.", "Thiếu thông tin", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                     return;
                 }
 
-                var (pageId, postId) = await _fbApiService.ResolvePostInfoAsync(link);
                 var meta = await _fbApiService.GetPostMetadataAsync(postId, token);
 
                 if (meta != null)
                 {
-                    // Lưu thông tin để dùng sau
-                    _pageId = pageId;
-                    _postId = postId;
-                    _accessToken = token;
-
                     // Thông báo kiểm tra kết nối thành công
                     string msg = $"Kết nối thành công!\n\nPost ID: {postId}\nPage ID: {pageId}\nCreated: {meta.Value.GetProperty("created_time").GetString()}";
                     MessageBox.Show(msg, "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    
+
                     // Enable button cho phép bắt đầu fetch comments
                     btnStart.Enabled = true;
                 }
@@ -195,7 +187,7 @@ namespace FacebookCommentFetcher
             progressBar.Value = 0;
 
             // Kiểm tra đã test chưa
-            if (string.IsNullOrEmpty(_postId) || string.IsNullOrEmpty(_accessToken))
+            if (string.IsNullOrEmpty(txtPostId.Text.Trim()) || string.IsNullOrEmpty(txtToken.Text.Trim()))
             {
                 MessageBox.Show("Vui lòng test kết nối trước!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
@@ -209,7 +201,7 @@ namespace FacebookCommentFetcher
                     progressBar.Value = Math.Min(value, progressBar.Maximum);
                 });
 
-                var comments = await _fbApiService.FetchCommentsAsync(_postId, _accessToken, progress);
+                var comments = await _fbApiService.FetchCommentsAsync(txtPostId.Text.Trim(), txtToken.Text.Trim(), progress);
                 grid.DataSource = comments;
 
                 MessageBox.Show($"Đã tải {comments.Count} bình luận!");
@@ -232,19 +224,7 @@ namespace FacebookCommentFetcher
             MessageBox.Show("📁 Xuất file Excel (chưa triển khai logic).", "Thông báo");
         }
 
-        private void ChkSaveToken_CheckedChanged(object? sender, EventArgs e)
-        {
-            if (chkSaveToken.Checked)
-            {
-                _config.AccessToken = txtToken.Text.Trim();
-                ConfigService.SaveConfig(_config);
-
-                MessageBox.Show("Đã lưu Access Token vào cấu hình!",
-                    "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-        }
-
-                private void Grid_DataBindingComplete(object? sender, DataGridViewBindingCompleteEventArgs e)
+        private void Grid_DataBindingComplete(object? sender, DataGridViewBindingCompleteEventArgs e)
         {
             // Tự động điều chỉnh cột để hiển thị tốt hơn
             if (grid.Columns.Contains("Id") && grid.Columns["Id"] != null)
@@ -256,7 +236,7 @@ namespace FacebookCommentFetcher
                 grid.Columns["Id"]!.DefaultCellStyle.Font = new Font(grid.Font, FontStyle.Underline);
                 grid.Columns["Id"]!.ToolTipText = "Click để xem người comment trên Facebook";
             }
-            
+
             if (grid.Columns.Contains("Message") && grid.Columns["Message"] != null)
             {
                 grid.Columns["Message"]!.HeaderText = "Nội dung";
@@ -268,7 +248,7 @@ namespace FacebookCommentFetcher
                 grid.Columns["CreatedTime"]!.HeaderText = "Thời gian";
                 grid.Columns["CreatedTime"]!.Width = 150;
             }
-            
+
             // Thêm tooltip cho toàn bộ grid
             grid.ShowCellToolTips = true;
         }
@@ -279,13 +259,13 @@ namespace FacebookCommentFetcher
             if (e.RowIndex >= 0 && e.ColumnIndex >= 0)
             {
                 var columnName = grid.Columns[e.ColumnIndex].Name;
-                
+
                 if (columnName == "Id")
                 {
                     var commentUrl = grid.Rows[e.RowIndex].Cells["CommentUrl"].Value?.ToString();
 
                     if (!string.IsNullOrEmpty(commentUrl))
-                    {                      
+                    {
                         try
                         {
                             // Mở browser với URL của comment
@@ -297,7 +277,7 @@ namespace FacebookCommentFetcher
                         }
                         catch (Exception ex)
                         {
-                            MessageBox.Show($"Không thể mở browser: {ex.Message}", 
+                            MessageBox.Show($"Không thể mở browser: {ex.Message}",
                                 "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                         }
                     }
